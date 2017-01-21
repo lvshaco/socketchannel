@@ -49,17 +49,19 @@ func (ch *Channel) Call(req []byte) ([]byte, error) {
     if ch.conn == nil {
         return nil, errClosed
     }
-    _, err := ch.conn.Write(req)
-    if err != nil {
-        ch.wakeupAll(err)
-        return nil, err
-    }
     call := &Call {
         done: make(chan *Call, 1),
     }
     ch.cqm.Lock()
     ch.callQueue = append(ch.callQueue, call)
     ch.cqm.Unlock()
+
+    _, err := ch.conn.Write(req)
+    if err != nil {
+        ch.callQueue = ch.callQueue[:len(ch.callQueue)-1]
+        ch.wakeupAll(err)
+        return nil, err
+    }
     call = <-call.done
     return call.res, call.err
 }
